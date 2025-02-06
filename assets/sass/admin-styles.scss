@@ -1,0 +1,52 @@
+#sv-import-json {
+	max-width: 1000px;
+
+	.sv-container {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+
+		&__box {
+			background-color: white;
+			padding: 1.25rem;
+			display: flex;
+			flex-direction: column;
+			gap: 0.5rem;
+			height: fit-content;
+		}
+
+		&__columns {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 1rem;
+			margin: 1rem 0;
+
+			> div {
+				flex: 1;
+			}
+		}
+	}
+
+	.sv-files-list {
+		ul {
+			display: flex;
+			flex-direction: column;
+			flex-wrap: wrap;
+			row-gap: 0.5rem;
+			column-gap: 1rem;
+			max-height: 400px;
+		}
+	}
+
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+
+		input {
+			&[type='submit'] {
+				width: fit-content;
+			}
+		}
+	}
+}
