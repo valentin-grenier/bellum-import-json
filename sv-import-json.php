@@ -31,10 +31,10 @@ if (file_exists(SV_IMPORT_JSON_DIR . 'vendor/autoload.php')) {
 }
 
 # Trigger the activation hook
-register_activation_hook(__FILE__, function () {
-    $cron_manager = new Cron_Manager();
-    $cron_manager->schedule_cron();
-});
+// register_activation_hook(__FILE__, function () {
+//     $cron_manager = new Cron_Manager();
+//     $cron_manager->schedule_cron();
+// });
 
 # Trigger the deactivation hook
 register_deactivation_hook(

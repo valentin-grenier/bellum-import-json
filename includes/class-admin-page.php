@@ -91,17 +91,20 @@ class Admin_Page
                     # Check if the file was uploaded successfully
                     if (!move_uploaded_file($file['tmp_name'], $upload_path)) {
                         $notices[] = ['type' => 'error', 'message' => __('File upload failed.', 'bellum')];
+                    } else {
+                        $notices[] = ['type' => 'success', 'message' => __('File uploaded successfully.', 'bellum')];
+
+                        sv_plugin_log('📂 JSON file uploaded: ' . $file['name']);
+                        die();
                     }
 
-                    # Import the JSON file
-                    $importer = new Import_Process();
-                    $result = $importer->import_single_json_file($upload_path);
+                    # Store the file path for CRON processing
+                    update_option('sv_import_json_file', $upload_path);
 
-                    # Display notices based on the result
-                    if ($result) {
-                        $notices[] = ['type' => 'success', 'message' => __('JSON file imported successfully', 'bellum')];
-                    } else {
-                        $notices[] = ['type' => 'error', 'message' => __('Failed to import JSON file.', 'bellum')];
+                    # Schedule the CRON job to process the JSON file
+                    if (!wp_next_scheduled('sv_process_import_json_cron')) {
+                        wp_schedule_event(time(), 'hourly', 'freelance_import_event');
+                        sv_plugin_log("🕒 Scheduled the 'sv_process_import_json_cron'.");
                     }
                 }
             }
