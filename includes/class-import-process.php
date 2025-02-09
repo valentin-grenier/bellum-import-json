@@ -9,51 +9,67 @@ class Import_Process
     # Process the JSON files in the processing folder
     public function process_import_json_file($json_file)
     {
-        # Fetch the uploaded file (you may store this path in the database when uploading)
+        sv_plugin_log('🆕 New JSON file: ' . $json_file['name']);
+        $file_name = $json_file['name'];
+
+        # Define upload directory
         $upload_dir = get_stylesheet_directory() . '/json-files/';
-        $upload_path = $upload_dir . $json_file;  # Replace with the actual filename
 
-        # Check if the file exists before proceeding
-        if (file_exists($upload_path)) {
-            $importer = new Import_Process();
-
-            # Split the large JSON file into multiple smaller files in the "processing" folder
-            $splitting_process = $importer->split_large_json_file($upload_path);
-
-            if ($splitting_process) {
-                # Process the files in the "processing" folder
-                $processing_files_dir = get_stylesheet_directory() . '/json-files/processing/';
-                $files = glob($processing_files_dir . '*.json');
-
-                if (!empty($files)) {
-                    foreach ($files as $file) {
-                        $importer->import_single_json_file($file);
-
-                        sv_plugin_log("📂 Splitted file: $file");
-                    }
-                }
-            } else {
-                sv_plugin_log("❌ Error when splitting JSON files.");
-            }
+        # Ensure upload directory exists
+        if (!file_exists($upload_dir)) {
+            mkdir($upload_dir);
         }
+
+        # Check if upload directory is writable
+        if (!is_writable($upload_dir)) {
+            sv_plugin_log('❌ Upload directory is not writable.');
+            return;
+        }
+
+        # Define file path
+        $upload_path = $upload_dir . basename($file_name);
+
+        # Move the uploaded file to the upload directory
+        if (!move_uploaded_file($json_file['tmp_name'], $upload_path)) {
+            sv_plugin_log('❌ Could not upload file in /json-files.');
+            return;
+        }
+
+        sv_plugin_log('✅ File uploaded successfully.');
+
+        # Check if the file exists
+        if (!file_exists($upload_path)) {
+            sv_plugin_log('❌ File not found: ' . $file_name);
+            return;
+        }
+
+        sv_plugin_log('⌛ File is ready for processing.');
+
+        # Check the file size and split if weights more than 0.5MB
+        $file_size = filesize($upload_path);
+        sv_plugin_log('📏 File size is ' . $file_size . ' bytes.');
+
+        if ($file_size > 500000) {
+            sv_plugin_log('⏳ Splitting large JSON file...');
+            $this->split_large_json_file($upload_path);
+        }
+
+        # Schedule the CRON job to process the JSON files inside the 'json-files' directory
+        $cron_manager = new Cron_Manager();
+        sv_plugin_log('🕒 Scheduling import job...');
+        $cron_manager->trigger_import_cron();
     }
 
     # Split JSON file into multiple files
-    function split_large_json_file($file_path, $batch_size = 1000)
+    function split_large_json_file($file_path, $batch_size = 500)
     {
-        $json_dir = dirname($file_path);
+        $json_dir = dirname($file_path) . '/';
 
         if (!is_dir($json_dir)) {
             sv_plugin_log("❌ Error: The JSON directory does not exist.");
             return false;
         }
 
-        $processing_dir = $json_dir . '/processing/';
-
-        # Ensure the processing folder exists
-        if (!file_exists($processing_dir)) {
-            mkdir($processing_dir, 0755, true);
-        }
 
         # Read the large JSON file
         $file_contents = file_get_contents($file_path);
@@ -70,15 +86,31 @@ class Import_Process
 
         foreach ($chunks as $index => $chunk) {
             # Write the chunk to a new file
-            $chunk_file = $processing_dir . "{$file_base_name}_part-{$index}.json";
+            $chunk_file_name = "{$file_base_name}_part-{$index}.json";
+            $chunk_file = $json_dir . $chunk_file_name;
 
             # Fill the chunk file with the data
             file_put_contents($chunk_file, json_encode($chunk, JSON_PRETTY_PRINT));
 
-            sv_plugin_log("📂 Creating file: $chunk_file");
+            sv_plugin_log("📂 Creating file: $chunk_file_name");
         }
 
-        sv_plugin_log("✅ Fichiers JSON divisés.");
+        sv_plugin_log("✅ Large JSON file successfully split.");
+
+        # Delete large JSON file after splitting
+        sv_plugin_log("🗑️ Deleting large JSON file...");
+
+        try {
+            if (unlink($file_path)) {
+                sv_plugin_log("✅ Large JSON file deleted.");
+            } else {
+                sv_plugin_log("❌ Failed to delete large JSON file.");
+                return false;
+            }
+        } catch (Exception $e) {
+            sv_plugin_log("❌ Exception occurred while deleting large JSON file: " . $e->getMessage());
+            return false;
+        }
 
         return true;
     }
@@ -86,10 +118,13 @@ class Import_Process
     # JSON file import process
     public function import_single_json_file($file_path)
     {
+        # Create a counter for successful profiles import
+        $imported_profiles = 0;
+        $duplicate_profiles = 0;
 
         # Set the lock to prevent duplicate imports
         update_option('freelance_import_in_progress', true);
-        sv_plugin_log("🚀 Starting import ...");
+        sv_plugin_log("🚀 Starting profiles import...");
 
         if (is_file($file_path)) {
             $json_data = file_get_contents($file_path);
@@ -107,7 +142,7 @@ class Import_Process
                 $existing_profile = $this->find_existing_profile($person);
 
                 if ($existing_profile) {
-                    sv_plugin_log('⏭️ Existing profile for ' . $person['name'] . ' with ID ' . $existing_profile);
+                    $duplicate_profiles++;
                     continue;
                 }
 
@@ -123,7 +158,8 @@ class Import_Process
                     continue;
                 }
 
-                sv_plugin_log('✅ Profile created for ' . $person['name'] . ' with ID ' . $post_id);
+                # Increment the successful import counter
+                $imported_profiles++;
 
                 # Mise à jour des informations de la personne avec les nouveaux champs ACF
                 update_field('coordonnees_longitude', sanitize_text_field($person['longitude']), $post_id);
@@ -268,7 +304,21 @@ class Import_Process
             }
 
             update_option('freelance_import_in_progress', false);
-            sv_plugin_log("✅ Import completed for " . basename($file_path));
+            sv_plugin_log("✅ Import completed for " . basename($file_path) . " with $imported_profiles profiles imported.");
+            sv_plugin_log("🔁 $duplicate_profiles profiles were skipped as duplicates.");
+
+            # Move JSON file to the 'imported' folder
+            $imported_dir = dirname($file_path) . '/imported/';
+
+            if (!file_exists($imported_dir)) {
+                mkdir($imported_dir);
+            }
+
+            $imported_file_path = $imported_dir . basename($file_path);
+
+            if (!rename($file_path, $imported_file_path)) {
+                sv_plugin_log("❌ Error moving JSON file to 'imported' folder.");
+            }
 
             return true;
         } else {

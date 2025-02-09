@@ -11,6 +11,7 @@ class Admin_Page
         add_action('admin_menu', array($this, 'add_menu'));
         add_action('admin_post_sv_import_json', array($this, 'handle_import_json'));
         add_action('admin_notices', array($this, 'admin_notices'));
+        add_action('admin_post_sv_delete_imported_files', array($this, 'delete_imported_files'));
     }
 
     # Admin notices
@@ -54,68 +55,108 @@ class Admin_Page
     public function handle_import_json()
     {
         # Store notices
-        $notices = array();
+        $notices = [];
 
         # Check if nonce is set
         if (!isset($_POST['import_json_nonce_field']) || !wp_verify_nonce($_POST['import_json_nonce_field'], 'import_json_nonce')) {
-            $notices[] = ['type' => 'error', 'message' => __('Nonce verification failed.', 'bellum')];
+            set_transient('sv_import_json_notices', [['type' => 'error', 'message' => __('Nonce verification failed.', 'bellum')]], 30);
+            wp_redirect(admin_url('admin.php?page=sv-import-json'));
         }
 
         # Check if the user has the required permissions
         if (!current_user_can('manage_options')) {
             $notices[] = ['type' => 'error', 'message' => __('You do not have permission to perform this action.', 'bellum')];
+            wp_redirect(admin_url('admin.php?page=sv-import-json'));
         }
 
+        # Get the uploaded file
+        $file = isset($_FILES['json-file']) ? $_FILES['json-file'] : null;
+
         # Check if the file input is set and not empty
-        if (!isset($_FILES['json-file']) || empty($_FILES['json-file']['name'])) {
+        if (!$file || empty($file['name'])) {
             $notices[] = ['type' => 'error', 'message' => __('No file uploaded.', 'bellum')];
+            wp_redirect(admin_url('admin.php?page=sv-import-json'));
+        }
+
+        # Check if the file is a JSON file
+        if ($file['type'] !== 'application/json') {
+            $notices[] = ['type' => 'error', 'message' => __('Invalid file type. Please upload a JSON file.', 'bellum')];
+            wp_redirect(admin_url('admin.php?page=sv-import-json'));
+        }
+
+        # Start the import process
+        $importer = new Import_Process();
+        $is_imported = $importer->process_import_json_file($file);
+
+        # Redirect back to the admin page
+        wp_redirect(admin_url('admin.php?page=sv-import-json'));
+
+        # If JSON file is successfully imported, display a success message
+        if ($is_imported) {
+            $notices[] = [
+                'type' => 'success',
+                'message' => __('JSON file imported successfully.', 'bellum')
+            ];
         } else {
-            $file = $_FILES['json-file'];
+            $notices[] = [
+                'type' => 'error',
+                'message' => __('An error occurred while importing the JSON file.', 'bellum')
+            ];
+        }
+    }
 
-            # Check if the file is a JSON file
-            if ($file['type'] !== 'application/json') {
-                $notices[] = ['type' => 'error', 'message' => __('Invalid file type. Please upload a JSON file.', 'bellum')];
-            } else {
-                # Upload file to the dedicated folder, in themes/bellum/json-files/
-                $upload_dir = get_stylesheet_directory() . '/json-files/';
+    # Delete all imported files
+    function delete_imported_files()
+    {
+        # Store notices
+        $notices = [];
 
-                if (!file_exists($upload_dir)) {
-                    wp_mkdir_p($upload_dir);
-                }
+        # Verify nonce for security
+        if (
+            !isset($_POST['delete_imported_files_nonce_field']) ||
+            !wp_verify_nonce($_POST['delete_imported_files_nonce_field'], 'delete_imported_files_nonce')
+        ) {
+            $notices[] = [
+                'type' => 'error',
+                'message' => __('Nonce verification failed.', 'bellum')
+            ];
+        }
 
-                if (!is_writable($upload_dir)) {
-                    $notices[] = ['type' => 'error', 'message' => __('Upload directory is not writable.', 'bellum')];
-                } else {
-                    $upload_path = $upload_dir . basename($file['name']);
+        # Define the imported files directory
+        $imported_files_dir = get_stylesheet_directory() . '/json-files/imported/';
 
-                    # Check if the file was uploaded successfully
-                    if (!move_uploaded_file($file['tmp_name'], $upload_path)) {
-                        $notices[] = ['type' => 'error', 'message' => __('File upload failed.', 'bellum')];
-                    } else {
-                        $notices[] = ['type' => 'success', 'message' => __('File uploaded successfully.', 'bellum')];
+        # Check if the user has the required permissions
+        if (!current_user_can('manage_options')) {
+            $notices[] = [
+                'type' => 'error',
+                'message' => __('You do not have permission to perform this action.', 'bellum')
+            ];
+        }
 
-                        sv_plugin_log('📂 JSON file uploaded: ' . $file['name']);
-                        die();
-                    }
+        # Flag the starting time of the action
+        sv_plugin_log('🗑️ Deleting imported JSON files...');
 
-                    # Store the file path for CRON processing
-                    update_option('sv_import_json_file', $upload_path);
+        # Check if directory exists
+        if (!is_dir($imported_files_dir)) {
+            sv_plugin_log('⚠️ Imported files directory does not exist.');
+            wp_redirect(admin_url('admin.php?page=sv-import-json&'));
+            exit;
+        }
 
-                    # Schedule the CRON job to process the JSON file
-                    if (!wp_next_scheduled('sv_process_import_json_cron')) {
-                        wp_schedule_event(time(), 'hourly', 'freelance_import_event');
-                        sv_plugin_log("🕒 Scheduled the 'sv_process_import_json_cron'.");
-                    }
-                }
+        # Get all files in the directory
+        $files = glob($imported_files_dir . '*.json');
+
+        # Delete each file
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
+                sv_plugin_log("🗑️ Deleted file: " . basename($file));
             }
         }
 
-        # Store notices in a transient
-        if (!empty($notices)) {
-            set_transient('sv_import_json_notices', $notices, 30);
-        }
+        sv_plugin_log('✅ All imported JSON files have been deleted.');
 
-        # Redirect back to the admin page
+        # Redirect back to the admin page with a success message
         wp_redirect(admin_url('admin.php?page=sv-import-json'));
         exit;
     }

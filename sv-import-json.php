@@ -36,6 +36,7 @@ if (file_exists(SV_IMPORT_JSON_DIR . 'vendor/autoload.php')) {
 //     $cron_manager->schedule_cron();
 // });
 
+
 # Trigger the deactivation hook
 register_deactivation_hook(
     __FILE__,
@@ -48,7 +49,7 @@ register_deactivation_hook(
 if (!function_exists('sv_plugin_log')) {
     function sv_plugin_log($message)
     {
-        $log_file = SV_IMPORT_JSON_DIR . '/sv-plugin-debug.log'; // Change the filename if needed
+        $log_file = SV_IMPORT_JSON_DIR . '/sv-plugin-debug.log';
         error_log('[' . date('Y-m-d H:i:s') . '] ' . print_r($message, true) . "\n", 3, $log_file);
     }
 }
