@@ -30,13 +30,6 @@ if (file_exists(SV_IMPORT_JSON_DIR . 'vendor/autoload.php')) {
     require_once SV_IMPORT_JSON_DIR . 'vendor/autoload.php';
 }
 
-# Trigger the activation hook
-// register_activation_hook(__FILE__, function () {
-//     $cron_manager = new Cron_Manager();
-//     $cron_manager->schedule_cron();
-// });
-
-
 # Trigger the deactivation hook
 register_deactivation_hook(
     __FILE__,
@@ -49,7 +42,7 @@ register_deactivation_hook(
 if (!function_exists('sv_plugin_log')) {
     function sv_plugin_log($message)
     {
-        $log_file = SV_IMPORT_JSON_DIR . '/sv-plugin-debug.log';
+        $log_file = SV_IMPORT_JSON_DIR . '/bellum-plugin-debug.log';
         error_log('[' . date('Y-m-d H:i:s') . '] ' . print_r($message, true) . "\n", 3, $log_file);
     }
 }

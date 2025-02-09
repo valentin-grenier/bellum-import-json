@@ -3,7 +3,6 @@
 	"version": "1.0.0",
 	"author": "Valentin Grenier • Studio Val",
 	"description": "Custom plugin made for Bellum to import JSON files and create freelance profiles.",
-	"main": "build/index.js",
 	"scripts": {
 		"sass-dev": "sass --watch ./assets/sass/admin-styles.scss:./assets/css/admin-styles.css"
 	},
