@@ -21,26 +21,20 @@ define('SV_IMPORT_JSON_URL', plugin_dir_url(__FILE__));
 
 # Include required plugin classes
 require_once SV_IMPORT_JSON_DIR . 'classes/class-admin-page.php';
+require_once SV_IMPORT_JSON_DIR . 'classes/class-cron-manager.php';
+require_once SV_IMPORT_JSON_DIR . 'classes/class-json-importer.php';
 
 # Autoload dependencies if the vendor directory exists
 if (file_exists(SV_IMPORT_JSON_DIR . 'vendor/autoload.php')) {
     require_once SV_IMPORT_JSON_DIR . 'vendor/autoload.php';
 }
 
-# Debug utility class
+# Custom debug function
 if (!function_exists('sv_plugin_log')) {
     function sv_plugin_log($message)
     {
         $log_file = SV_IMPORT_JSON_DIR . '/bellum-plugin-debug.log';
-
-        // Check if log file is writable
-        if (is_writable($log_file)) {
-            // Log the message to the file
-            error_log('[' . date('Y-m-d H:i:s') . '] ' . print_r($message, true) . "\n", 3, $log_file);
-        } else {
-            // Log an error if the file is not writable
-            error_log('Log file is not writable');
-        }
+        error_log('[' . date('Y-m-d H:i:s') . '] ' . print_r($message, true) . "\n", 3, $log_file);
     }
 }
 
@@ -48,5 +42,8 @@ if (!function_exists('sv_plugin_log')) {
 function sv_import_json_init()
 {
     new Admin_Page();
+    new Cron_Manager();
+    new JSON_Importer();
 }
+
 add_action('plugins_loaded', 'sv_import_json_init');

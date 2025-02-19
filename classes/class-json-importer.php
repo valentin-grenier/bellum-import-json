@@ -2,7 +2,7 @@
 class JSON_Importer
 {
     private $lock_file;
-    private $json_dir;
+    private $upload_dir;
     private $queue_dir;
     private $proceeding_dir;
     private $imported_dir;
@@ -10,20 +10,19 @@ class JSON_Importer
     public function __construct()
     {
         $this->lock_file = WP_CONTENT_DIR . '/json-files/import.lock';
-        $this->json_dir = WP_CONTENT_DIR . '/json-files';
-        $this->queue_dir = $this->json_dir . '/queue';
-        $this->proceeding_dir = $this->json_dir . '/proceeding';
-        $this->imported_dir = $this->json_dir . '/imported';
+        $this->upload_dir = WP_CONTENT_DIR . '/json-files';
+        $this->queue_dir = $this->upload_dir . '/queue';
+        $this->proceeding_dir = $this->upload_dir . '/proceeding';
+        $this->imported_dir = $this->upload_dir . '/imported';
 
         add_action('init', [$this, 'schedule_cron']);
         add_action('json_import_cron', [$this, 'process_json_files']);
-        add_action('init', [$this, 'check_directories']);
     }
 
     public function check_directories()
     {
-        if (!file_exists($this->json_dir)) {
-            mkdir($this->json_dir, 0755, true);
+        if (!file_exists($this->upload_dir)) {
+            mkdir($this->upload_dir, 0755, true);
         }
 
         if (!file_exists($this->queue_dir)) {
@@ -48,25 +47,21 @@ class JSON_Importer
 
     public function process_json_files()
     {
-        # Check if another process is running
         if ($this->is_locked()) {
             sv_plugin_log('JSON Import: Process already running, exiting.');
             return;
         }
 
-        # Else, create lock file
         $this->create_lock();
 
-        # Look for JSON files in the queue directory
-        $files = glob($this->json_dir . '/*.json');
+        $files = glob($this->queue_dir . '/*.json');
 
         if (empty($files)) {
-            //sv_plugin_log('JSON Import: No new files found.');
+            sv_plugin_log('JSON Import: No files to process.');
             $this->remove_lock();
             return;
         }
 
-        # Move each file to /proceeding and process it
         foreach ($files as $file) {
             $filename = basename($file);
             $new_path = $this->proceeding_dir . '/' . $filename;
@@ -75,34 +70,26 @@ class JSON_Importer
             rename($file, $new_path);
             sv_plugin_log("JSON Import: Moved $filename to /proceeding/");
 
-            # Process the file and check for errors
             $this->process_file($new_path);
 
-            # Move to /imported
-            rename($new_path, $this->imported_dir . '/' . $filename);
+            rename($new_path, $this->imported_dir . '/' . $filename); # Move to /imported
             sv_plugin_log("JSON Import: Moved $filename to /imported/");
         }
 
-        # Remove lock file
         $this->remove_lock();
     }
 
     private function process_file($file_path)
     {
-        # Define file name from path
-        $file_name = basename($file_path);
-
-        sv_plugin_log("Processing: $file_name");
-
+        # Your JSON processing logic here
+        sv_plugin_log("Processing: $file_path");
 
         $json_data = file_get_contents($file_path);
         $entries = json_decode($json_data, true);
 
-        # Process each entry in the JSON file
         foreach ($entries as $entry) {
-            sv_plugin_log("Fake processing: " . $entry['title']);
-
-            # Wait 5 seconds after import success
+            # Import logic (to be implemented)
+            sv_plugin_log("[Fake import]");
             sleep(5);
         }
     }
@@ -113,11 +100,9 @@ class JSON_Importer
             return false;
         }
 
-        # Check if lock file is older than 30 minutes
         $lock_time = filemtime($this->lock_file);
-        $timeout = 30 * 60;
+        $timeout = 30 * 60; # 30 minutes
 
-        # Remove lock file if it's too old
         if (time() - $lock_time > $timeout) {
             sv_plugin_log('JSON Import: Lock file expired, removing it.');
             unlink($this->lock_file);
