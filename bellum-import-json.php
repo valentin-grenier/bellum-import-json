@@ -19,34 +19,20 @@ if (! defined('ABSPATH')) {
 define('SV_IMPORT_JSON_DIR', plugin_dir_path(__FILE__));
 define('SV_IMPORT_JSON_URL', plugin_dir_url(__FILE__));
 
+# Include core classes
+require_once SV_IMPORT_JSON_DIR . 'core/class-plugin-assets.php';
+
 # Include required plugin classes
-require_once SV_IMPORT_JSON_DIR . 'includes/class-import-process.php';
-require_once SV_IMPORT_JSON_DIR . 'includes/class-admin-page.php';
-require_once SV_IMPORT_JSON_DIR . 'includes/class-cron-manager.php';
-require_once SV_IMPORT_JSON_DIR . 'includes/class-plugin-assets.php';
+require_once SV_IMPORT_JSON_DIR . 'classes/class-admin-page.php';
+require_once SV_IMPORT_JSON_DIR . 'classes/class-cron-manager.php';
+require_once SV_IMPORT_JSON_DIR . 'classes/class-json-importer.php';
 
 # Autoload dependencies if the vendor directory exists
 if (file_exists(SV_IMPORT_JSON_DIR . 'vendor/autoload.php')) {
     require_once SV_IMPORT_JSON_DIR . 'vendor/autoload.php';
 }
 
-# Register the activation hook
-register_activation_hook(
-    __FILE__,
-    function () {
-        wp_schedule_event(time(), 'daily', 'freelance_import_event');
-    }
-);
-
-# Trigger the deactivation hook
-register_deactivation_hook(
-    __FILE__,
-    function () {
-        wp_clear_scheduled_hook('freelance_import_event');
-    }
-);
-
-# Debug utility class
+# Custom debug function
 if (!function_exists('sv_plugin_log')) {
     function sv_plugin_log($message)
     {
@@ -58,9 +44,13 @@ if (!function_exists('sv_plugin_log')) {
 # Initialize the plugin
 function sv_import_json_init()
 {
-    new Import_Process();
+    # Core classes
+    new Plugin_Assets();
+
+    # Classes
     new Admin_Page();
     new Cron_Manager();
-    new Plugin_Assets();
+    new JSON_Importer();
 }
+
 add_action('plugins_loaded', 'sv_import_json_init');
