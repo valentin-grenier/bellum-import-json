@@ -9,6 +9,10 @@ $files = array_filter(array_diff(scandir($json_dir), array('..', '.')), function
 # Get list of imported JSON files
 $imported_files_dir = get_stylesheet_directory() . '/json-files/imported/';
 
+if (!file_exists($imported_files_dir)) {
+    mkdir($imported_files_dir, 0755, true);
+}
+
 ?>
 
 <div class="sv-container wrap" id="sv-import-json">

@@ -30,6 +30,14 @@ if (file_exists(SV_IMPORT_JSON_DIR . 'vendor/autoload.php')) {
     require_once SV_IMPORT_JSON_DIR . 'vendor/autoload.php';
 }
 
+# Register the activation hook
+register_activation_hook(
+    __FILE__,
+    function () {
+        wp_schedule_event(time(), 'daily', 'freelance_import_event');
+    }
+);
+
 # Trigger the deactivation hook
 register_deactivation_hook(
     __FILE__,

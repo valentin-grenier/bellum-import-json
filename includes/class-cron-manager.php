@@ -15,6 +15,7 @@ class Cron_Manager
     public function trigger_import_cron($time = 0)
     {
         wp_schedule_single_event($time, 'freelance_import_event');
+        sv_plugin_log('🕒 Import job scheduled.');
     }
 
     # CRON job action to process one JSON file at a time
@@ -26,12 +27,30 @@ class Cron_Manager
             return;
         }
 
+        sv_plugin_log('🕒 Import job started.');
+
         # Set a transient to indicate that the job is running
         set_transient('import_json_job_running', true, 60 * 60); # 1 hour expiration
 
         # Get all JSON files
         $json_dir = get_stylesheet_directory() . '/json-files/';
         $archive_dir = $json_dir . 'imported/';
+
+        # Ensure the directories exist
+        if (!is_dir($json_dir)) {
+            sv_plugin_log("⚠️ JSON directory does not exist: $json_dir");
+            delete_transient('import_json_job_running');
+            return;
+        }
+
+        if (!is_dir($archive_dir)) {
+            if (!mkdir($archive_dir, 0755, true)) {
+                sv_plugin_log("⚠️ Failed to create archive directory: $archive_dir");
+                delete_transient('import_json_job_running');
+                return;
+            }
+        }
+
         $files = glob($json_dir . '*.json');
 
         if (empty($files)) {
