@@ -19,6 +19,9 @@ if (! defined('ABSPATH')) {
 define('SV_IMPORT_JSON_DIR', plugin_dir_path(__FILE__));
 define('SV_IMPORT_JSON_URL', plugin_dir_url(__FILE__));
 
+# Include core classes
+require_once SV_IMPORT_JSON_DIR . 'core/class-plugin-assets.php';
+
 # Include required plugin classes
 require_once SV_IMPORT_JSON_DIR . 'classes/class-admin-page.php';
 require_once SV_IMPORT_JSON_DIR . 'classes/class-cron-manager.php';
@@ -41,6 +44,10 @@ if (!function_exists('sv_plugin_log')) {
 # Initialize the plugin
 function sv_import_json_init()
 {
+    # Core classes
+    new Plugin_Assets();
+
+    # Classes
     new Admin_Page();
     new Cron_Manager();
     new JSON_Importer();

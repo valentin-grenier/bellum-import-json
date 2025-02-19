@@ -48,7 +48,7 @@ class JSON_Importer
     public function process_json_files()
     {
         if ($this->is_locked()) {
-            sv_plugin_log('JSON Import: Process already running, exiting.');
+            sv_plugin_log('Process already running, exiting.');
             return;
         }
 
@@ -57,7 +57,7 @@ class JSON_Importer
         $files = glob($this->queue_dir . '/*.json');
 
         if (empty($files)) {
-            sv_plugin_log('JSON Import: No files to process.');
+            sv_plugin_log('No files to process.');
             $this->remove_lock();
             return;
         }
@@ -68,12 +68,12 @@ class JSON_Importer
 
             # Move to /proceeding
             rename($file, $new_path);
-            sv_plugin_log("JSON Import: Moved $filename to /proceeding/");
+            sv_plugin_log("Moved $filename to /proceeding/");
 
             $this->process_file($new_path);
 
             rename($new_path, $this->imported_dir . '/' . $filename); # Move to /imported
-            sv_plugin_log("JSON Import: Moved $filename to /imported/");
+            sv_plugin_log("Moved $filename to /imported/");
         }
 
         $this->remove_lock();
@@ -81,8 +81,11 @@ class JSON_Importer
 
     private function process_file($file_path)
     {
+        # JSON file name
+        $file_name = basename($file_path);
+
         # Your JSON processing logic here
-        sv_plugin_log("Processing: $file_path");
+        sv_plugin_log("Processing: $file_name");
 
         $json_data = file_get_contents($file_path);
         $entries = json_decode($json_data, true);
