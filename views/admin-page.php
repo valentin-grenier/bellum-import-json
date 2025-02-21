@@ -6,7 +6,7 @@ $notices = get_transient('sv_import_json_notices');
 # Get directories
 $uploads_dir = WP_CONTENT_DIR . '/json-files/';
 $queue_dir = $uploads_dir . 'queue/';
-$processing_dir = $uploads_dir . 'proceeding/';
+$processing_dir = $uploads_dir . 'processing/';
 $imported_dir = $uploads_dir . 'imported/';
 
 # Get files per directory
@@ -112,6 +112,12 @@ $imported_files = array_filter(array_diff(scandir($imported_dir), array('..', '.
                         <?php endif; ?>
                     </ul>
                 <?php endif; ?>
+
+                <form method="post" action="<?php echo admin_url('admin-post.php?action=sv_delete_imported_files'); ?>">
+                    <button class="button" id="sv_delete_imported_files" onclick="return confirm('Are you sure you want to delete this item?');">
+                        <?php esc_html_e('Supprimer les fichiers importés', 'bellum'); ?>
+                    </button>
+                </form>
             </div>
         <?php endif; ?>
     </div>

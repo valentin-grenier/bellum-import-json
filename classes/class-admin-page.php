@@ -4,14 +4,17 @@ class Admin_Page
 {
     private $upload_dir;
     private $queue_dir;
+    private $imported_dir;
 
     public function __construct()
     {
         add_action('admin_menu', array($this, 'add_menu'));
         add_action('admin_post_sv_import_json', array($this, 'handle_form_submission'));
+        add_action('admin_post_sv_delete_imported_files', array($this, 'delete_imported_files'));
 
         $this->upload_dir = WP_CONTENT_DIR . '/json-files/';
         $this->queue_dir = $this->upload_dir . 'queue/';
+        $this->imported_dir = $this->upload_dir . 'imported/';
     }
 
     # Add the menu page
@@ -169,5 +172,34 @@ class Admin_Page
         }
 
         return true;
+    }
+
+    public function delete_imported_files()
+    {
+        # Ensure the directory exists
+        if (!is_dir($this->imported_dir)) {
+            set_transient('sv_import_json_notices', [['type' => 'error', 'message' => __('The imported directory does not exist.', 'bellum')]], 30);
+            wp_redirect(admin_url('admin.php?page=sv-import-json'));
+            exit;
+        }
+
+        # Get files from directory
+        $imported_files = array_diff(scandir($this->imported_dir), ['..', '.']);
+
+        # Delete imported files
+        foreach ($imported_files as $file) {
+            $file_path = $this->imported_dir . $file;
+
+            if (is_file($file_path)) {
+                unlink($file_path);
+            }
+        }
+
+        # Display a success message
+        set_transient('sv_import_json_notices', [['type' => 'success', 'message' => __('Imported files deleted successfully.', 'bellum')]], 30);
+
+        # Redirect back to the admin page
+        wp_safe_redirect(admin_url('admin.php?page=sv-import-json'));
+        exit;
     }
 }

@@ -20,6 +20,7 @@ define('SV_IMPORT_JSON_DIR', plugin_dir_path(__FILE__));
 define('SV_IMPORT_JSON_URL', plugin_dir_url(__FILE__));
 
 # Include core classes
+require_once SV_IMPORT_JSON_DIR . 'core/class-init.php';
 require_once SV_IMPORT_JSON_DIR . 'core/class-plugin-assets.php';
 
 # Include required plugin classes
@@ -44,6 +45,9 @@ if (!function_exists('sv_plugin_log')) {
 # Initialize the plugin
 function sv_import_json_init()
 {
+    # Init
+    new Init();
+
     # Core classes
     new Plugin_Assets();
 
