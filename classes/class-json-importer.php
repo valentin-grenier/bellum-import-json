@@ -66,6 +66,8 @@ class JSON_Importer
         $start_time = microtime();
 
         foreach ($files as $file) {
+            $file_start_time = microtime();
+
             $filename = basename($file);
             $new_path = $this->processing_dir . '/' . $filename;
 
@@ -75,8 +77,16 @@ class JSON_Importer
 
             $this->process_file($new_path);
 
-            rename($new_path, $this->imported_dir . '/' . $filename); # Move to /imported
+            $file_end_time = microtime();
+            $file_time_taken = round($file_end_time - $file_start_time, 2);
+
+            rename($new_path, $this->imported_dir . '/' . $filename);
             sv_plugin_log("Moved $filename to /imported/");
+
+            # Count how many entries were imported
+            $entries_count = count(json_decode(file_get_contents($new_path), true));
+
+            sv_plugin_log("✅ $filename processed in $file_time_taken seconds. Imported $entries_count entries.");
         }
 
         # Flag end time of the import
