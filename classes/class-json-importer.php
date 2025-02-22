@@ -63,10 +63,10 @@ class JSON_Importer
         }
 
         # Flag start time of the import
-        $start_time = microtime();
+        $start_time = microtime(true);
 
         foreach ($files as $file) {
-            $file_start_time = microtime();
+            $file_start_time = microtime(true);
 
             $filename = basename($file);
             $new_path = $this->processing_dir . '/' . $filename;
@@ -77,7 +77,7 @@ class JSON_Importer
 
             $this->process_file($new_path);
 
-            $file_end_time = microtime();
+            $file_end_time = microtime(true);
             $file_time_taken = round($file_end_time - $file_start_time, 2);
 
             rename($new_path, $this->imported_dir . '/' . $filename);
@@ -90,7 +90,7 @@ class JSON_Importer
         }
 
         # Flag end time of the import
-        $end_time = microtime();
+        $end_time = microtime(true);
 
         # Calculate the time taken to import all profiles
         $time_taken = round($end_time - $start_time, 2);
@@ -112,9 +112,12 @@ class JSON_Importer
         $entries = json_decode($json_data, true);
 
         # Flag the begin time of the import
-        $start_time = microtime();
+        $start_time = microtime(true);
+        $total_imported_entries = 0;
 
         foreach ($entries as $entry) {
+            $entry_start_time = microtime(true);
+
             $person = $entry['person'];
             $name = sanitize_text_field($person['name']);
             $email = sanitize_email($entry['emails'][0]['email'] ?? '');
@@ -123,13 +126,13 @@ class JSON_Importer
             # Check if the profile has a name
             if (empty($name)) {
                 sv_plugin_log('Skipping profile without a name.');
-                return;
+                continue;
             }
 
             # Check if the profile already exists
             if ($this->is_duplicate_entry($person)) {
                 sv_plugin_log("Skipping duplicate: $name");
-                return;
+                continue;
             }
 
             # Insert new post
@@ -288,13 +291,19 @@ class JSON_Importer
             }
 
             # Flag the end time of the import
-            $end_time = microtime();
+            $entry_end_time = microtime(true);
 
             # Calculate the time taken to import the profile
-            $time_taken = round($end_time - $start_time, 2);
+            $time_taken = round($entry_end_time - $entry_start_time, 2);
 
             sv_plugin_log("✔️Imported: " . $person['name'] . " in $time_taken seconds");
+
+            $total_imported_entries++;
         }
+
+        # Flag the end time of the import
+        $end_time = microtime(true);
+        sv_plugin_log("✅ $file_name processed in " . round($end_time - $start_time, 2) . " seconds. Imported $total_imported_entries entries.");
 
         return true;
     }
