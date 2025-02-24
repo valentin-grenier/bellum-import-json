@@ -19,25 +19,6 @@ class JSON_Importer
         add_action('json_import_cron', [$this, 'process_json_files']);
     }
 
-    public function check_directories()
-    {
-        if (!file_exists($this->upload_dir)) {
-            mkdir($this->upload_dir, 0755, true);
-        }
-
-        if (!file_exists($this->queue_dir)) {
-            mkdir($this->queue_dir, 0755, true);
-        }
-
-        if (!file_exists($this->processing_dir)) {
-            mkdir($this->processing_dir, 0755, true);
-        }
-
-        if (!file_exists($this->imported_dir)) {
-            mkdir($this->imported_dir, 0755, true);
-        }
-    }
-
     public function schedule_cron()
     {
         if (!wp_next_scheduled('json_import_cron')) {
@@ -57,7 +38,6 @@ class JSON_Importer
         $files = glob($this->queue_dir . '/*.json');
 
         if (empty($files)) {
-            sv_plugin_log('No files to process.');
             $this->remove_lock();
             return;
         }
@@ -65,6 +45,7 @@ class JSON_Importer
         # Flag start time of the import
         $start_time = microtime(true);
 
+        # Process each file
         foreach ($files as $file) {
             $file_start_time = microtime(true);
 
@@ -83,19 +64,17 @@ class JSON_Importer
             rename($new_path, $this->imported_dir . '/' . $filename);
             sv_plugin_log("Moved $filename to /imported/");
 
-            # Count how many entries were imported
-            $entries_count = count(json_decode(file_get_contents($new_path), true));
+            # Log the time taken to process the file
+            sv_plugin_log("✅ $filename processed in $file_time_taken seconds.");
 
-            sv_plugin_log("✅ $filename processed in $file_time_taken seconds. Imported $entries_count entries.");
+            # Add a delay between each file
+            usleep(500000); # 500,000 microseconds = 0.5 seconds
         }
 
-        # Flag end time of the import
-        $end_time = microtime(true);
-
         # Calculate the time taken to import all profiles
-        $time_taken = round($end_time - $start_time, 2);
-
-        sv_plugin_log('✅ All files processed in ' . $time_taken . ' seconds');
+        $end_time = microtime(true);
+        $time_taken = round(($end_time - $start_time) / 60, 2);
+        sv_plugin_log('✅ All files processed in ' . $time_taken . ' minutes');
 
         $this->remove_lock();
     }
@@ -106,7 +85,7 @@ class JSON_Importer
         $file_name = basename($file_path);
 
         # Your JSON processing logic here
-        sv_plugin_log("Processing: $file_name");
+        sv_plugin_log("⏩ Processing: $file_name");
 
         $json_data = file_get_contents($file_path);
         $entries = json_decode($json_data, true);
@@ -130,7 +109,7 @@ class JSON_Importer
             }
 
             # Check if the profile already exists
-            if ($this->is_duplicate_entry($person)) {
+            if ($this->is_duplicate_entry($entry)) {
                 sv_plugin_log("Skipping duplicate: $name");
                 continue;
             }
@@ -153,8 +132,8 @@ class JSON_Importer
             update_field('coordonnees_latitude', sanitize_text_field($person['latitude']), $post_id);
             update_field('initiale_nom', sanitize_text_field($person['anonymousLastName']), $post_id);
             update_field('initiale_prenom', sanitize_text_field($person['anonymousFirstName']), $post_id);
-            update_field('tjm_min', sanitize_text_field($person['minAdr']), $post_id);
-            update_field('tjm_max', sanitize_text_field($person['maxAdr']), $post_id);
+            update_field('tjm_min', sanitize_text_field($person['adrMin']), $post_id);
+            update_field('tjm_max', sanitize_text_field($person['adrMax']), $post_id);
             update_field('freelancer_name', sanitize_text_field($person['name']), $post_id);
 
             // Calcul des années d'expérience basées sur le champ `job_experience`
@@ -197,7 +176,7 @@ class JSON_Importer
             }
 
             // Mise à jour des informations existantes dans les champs ACF
-            update_field('name', sanitize_text_field($person['frelancer_name']), $post_id);
+            update_field('freelancer_name', sanitize_text_field($person['name']), $post_id);
             update_field('description', sanitize_textarea_field($person['description']), $post_id);
             update_field('primary_role', sanitize_text_field($person['primary_role']), $post_id);
             update_field('linkedin_url', esc_url($person['linkedin_url']), $post_id);
@@ -296,7 +275,7 @@ class JSON_Importer
             # Calculate the time taken to import the profile
             $time_taken = round($entry_end_time - $entry_start_time, 2);
 
-            sv_plugin_log("✔️Imported: " . $person['name'] . " in $time_taken seconds");
+            sv_plugin_log("👤 Imported: " . $person['name'] . " in $time_taken seconds");
 
             $total_imported_entries++;
         }
@@ -386,24 +365,49 @@ class JSON_Importer
         return false;
     }
 
-    private function is_duplicate_entry($data)
+    public function is_duplicate_entry($data)
     {
         global $wpdb;
 
-        // Generate a unique hash for the entry based on important fields
-        $hash = md5($data['email'] . $data['name']);
+        # Validate and sanitize data
+        $linkedin_url = isset($data['person']['linkedin_url']) && !empty($data['person']['linkedin_url'])
+            ? sanitize_url($data['person']['linkedin_url'])
+            : null;
 
-        // Check if this hash already exists in post meta
-        $existing = $wpdb->get_var(
-            $wpdb->prepare(
-                "SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = '_import_entry_hash' AND meta_value = %s",
-                $hash
-            )
+        $email = isset($data['emails']) && is_array($data['emails']) && !empty($data['emails'])
+            ? sanitize_email($data['emails'][0]['email'] ?? null)
+            : null;
+
+        # Create temporary conditions and values arrays
+        $conditions = [];
+        $values = [];
+
+        if ($linkedin_url) {
+            $conditions[] = "(meta_key = 'linkedin_url' AND meta_value = %s)";
+            $values[] = $linkedin_url;
+        }
+
+        if ($email) {
+            $conditions[] = "(meta_key IN ('emails_0_email', 'emails_1_email') AND meta_value = %s)";
+            $values[] = $email;
+        }
+
+        # If there are no conditions, the entry is not a duplicate
+        if (empty($conditions)) {
+            return false;
+        }
+
+        # Construct and prepare query
+        $query = $wpdb->prepare(
+            "SELECT meta_id FROM {$wpdb->postmeta} WHERE " . implode(" OR ", $conditions) . " LIMIT 1",
+            ...$values
         );
 
-        return ($existing > 0);
-    }
+        $result = $wpdb->get_var($query);
 
+        # Return true if a duplicate entry is found
+        return !empty($result);
+    }
 
     private function is_locked()
     {
@@ -411,14 +415,14 @@ class JSON_Importer
             return false;
         }
 
-        $lock_time = filemtime($this->lock_file);
-        $timeout = 30 * 60; # 30 minutes
+        // $lock_time = filemtime($this->lock_file);
+        // $timeout = 60 * 60 * 24; # 24 hours
 
-        if (time() - $lock_time > $timeout) {
-            sv_plugin_log('JSON Import: Lock file expired, removing it.');
-            unlink($this->lock_file);
-            return false;
-        }
+        // if (time() - $lock_time > $timeout) {
+        //     sv_plugin_log('JSON Import: Lock file expired, removing it.');
+        //     unlink($this->lock_file);
+        //     return false;
+        // }
 
         return true;
     }
@@ -426,12 +430,16 @@ class JSON_Importer
     private function create_lock()
     {
         file_put_contents($this->lock_file, time());
+
+        sv_plugin_log('🔒 Lock file created.');
     }
 
-    private function remove_lock()
+    public function remove_lock()
     {
         if (file_exists($this->lock_file)) {
             unlink($this->lock_file);
         }
+
+        sv_plugin_log('🔓 Lock file removed.');
     }
 }

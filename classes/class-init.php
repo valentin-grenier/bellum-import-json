@@ -11,7 +11,6 @@ class Init
     {
         add_action('plugins_loaded', array($this, 'check_required_directories'));
 
-
         $this->upload_dir = WP_CONTENT_DIR . '/json-files/';
         $this->queue_dir = $this->upload_dir . 'queue/';
         $this->processing_dir = $this->upload_dir . 'proceeding/';
@@ -21,8 +20,6 @@ class Init
     # Check for required directories
     public function check_required_directories()
     {
-
-
         if (!file_exists($this->upload_dir)) {
             mkdir($this->upload_dir, 0755, true);
         }

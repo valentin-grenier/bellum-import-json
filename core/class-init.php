@@ -6,6 +6,7 @@ class Init
     private $queue_dir;
     private $processing_dir;
     private $imported_dir;
+    private $test_dir;
 
     public function __construct()
     {
@@ -16,6 +17,7 @@ class Init
         $this->queue_dir = $this->upload_dir . 'queue/';
         $this->processing_dir = $this->upload_dir . 'processing/';
         $this->imported_dir = $this->upload_dir . 'imported/';
+        $this->test_dir = $this->upload_dir . 'test/';
     }
 
     # Check for required directories
@@ -35,6 +37,10 @@ class Init
 
         if (!file_exists($this->imported_dir)) {
             mkdir($this->imported_dir, 0755, true);
+        }
+
+        if (!file_exists($this->test_dir)) {
+            mkdir($this->test_dir, 0755, true);
         }
     }
 }

@@ -10,6 +10,7 @@ class Admin_Page
     {
         add_action('admin_menu', array($this, 'add_menu'));
         add_action('admin_post_sv_import_json', array($this, 'handle_form_submission'));
+        add_action('admin_post_sv_delete_queue_files', array($this, 'delete_queue_files'));
         add_action('admin_post_sv_delete_imported_files', array($this, 'delete_imported_files'));
 
         $this->upload_dir = WP_CONTENT_DIR . '/json-files/';
@@ -197,6 +198,41 @@ class Admin_Page
 
         # Display a success message
         set_transient('sv_import_json_notices', [['type' => 'success', 'message' => __('Imported files deleted successfully.', 'bellum')]], 30);
+        sv_plugin_log("🗑️ Imported files deleted by user.");
+
+        # Redirect back to the admin page
+        wp_safe_redirect(admin_url('admin.php?page=sv-import-json'));
+        exit;
+    }
+
+    public function delete_queue_files()
+    {
+        # Ensure the directory exists
+        if (!is_dir($this->queue_dir)) {
+            set_transient('sv_import_json_notices', [['type' => 'error', 'message' => __('The queue directory does not exist.', 'bellum')]], 30);
+            wp_redirect(admin_url('admin.php?page=sv-import-json'));
+            exit;
+        }
+
+        # Get files from directory
+        $queue_files = array_diff(scandir($this->queue_dir), ['..', '.']);
+
+        # Delete queue files
+        foreach ($queue_files as $file) {
+            $file_path = $this->queue_dir . $file;
+
+            if (is_file($file_path)) {
+                unlink($file_path);
+            }
+        }
+
+        # Remove lock file
+        $lock_file = new JSON_Importer;
+        $lock_file->remove_lock();
+
+        # Display a success message
+        set_transient('sv_import_json_notices', [['type' => 'success', 'message' => __('Queue files deleted successfully.', 'bellum')]], 30);
+        sv_plugin_log("🗑️ Queue files deleted by user.");
 
         # Redirect back to the admin page
         wp_safe_redirect(admin_url('admin.php?page=sv-import-json'));

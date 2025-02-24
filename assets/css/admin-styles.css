@@ -1,6 +1,3 @@
-#sv-import-json {
-  max-width: 1000px;
-}
 #sv-import-json h1 {
   margin-bottom: 1.5rem;
 }
@@ -16,6 +13,7 @@
   flex-direction: column;
   gap: 0.5rem;
   height: fit-content;
+  max-width: 33%;
 }
 #sv-import-json .sv-container__columns {
   display: flex;

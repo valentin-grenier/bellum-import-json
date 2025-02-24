@@ -8,6 +8,7 @@ $uploads_dir = WP_CONTENT_DIR . '/json-files/';
 $queue_dir = $uploads_dir . 'queue/';
 $processing_dir = $uploads_dir . 'processing/';
 $imported_dir = $uploads_dir . 'imported/';
+$test_dir = $uploads_dir . 'test/';
 
 # Get files per directory
 $queue_files = array_filter(array_diff(scandir($queue_dir), array('..', '.')), function ($file) use ($queue_dir) {
@@ -21,6 +22,17 @@ $processing_files = array_filter(array_diff(scandir($processing_dir), array('..'
 $imported_files = array_filter(array_diff(scandir($imported_dir), array('..', '.')), function ($file) use ($imported_dir) {
     return is_file($imported_dir . $file);
 });
+
+$test_files = array_filter(array_diff(scandir($test_dir), array('..', '.')), function ($file) use ($test_dir) {
+    return is_file($test_dir . $file);
+});
+
+# TESTS
+$test_file = $test_files[2];
+$all_data = json_decode(file_get_contents($test_dir . $test_file), true);
+$data = $all_data[0];
+$json_importer = new JSON_Importer();
+$is_duplicate = $json_importer->is_duplicate_entry($data) ? 'Not duplicate' : 'Duplicate';
 
 ?>
 
@@ -65,13 +77,19 @@ $imported_files = array_filter(array_diff(scandir($imported_dir), array('..', '.
                 <?php else : ?>
                     <p><?php esc_html_e('Aucun fichier JSON disponible pour l\'importation.', 'bellum'); ?></p>
                 <?php endif; ?>
+
+                <form method="post" action="<?php echo admin_url('admin-post.php?action=sv_delete_queue_files'); ?>">
+                    <button class="button" id="sv_delete_queue_files" onclick="return confirm('Are you sure you want to delete queue files?');">
+                        <?php esc_html_e('🗑️ Supprimer les fichiers en attente', 'bellum'); ?>
+                    </button>
+                </form>
             </div>
         <?php endif; ?>
 
         <?php if ($processing_files): ?>
             <div class="sv-container__box sv-files-list">
                 <?php if (is_array($processing_files) && !empty($processing_files)) : ?>
-                    <h2>⌛ <?php _e(count($processing_files) . " imports de fichiers en cours", "bellum"); ?></h2>
+                    <h2>⌛ <?php _e("En cours d'import", "bellum"); ?></h2>
                     <ul>
                         <?php foreach (array_slice($processing_files, 0, 10) as $file) : ?>
                             <li><?php echo esc_html($file); ?></li>
@@ -115,9 +133,25 @@ $imported_files = array_filter(array_diff(scandir($imported_dir), array('..', '.
 
                 <form method="post" action="<?php echo admin_url('admin-post.php?action=sv_delete_imported_files'); ?>">
                     <button class="button" id="sv_delete_imported_files" onclick="return confirm('Are you sure you want to delete this item?');">
-                        <?php esc_html_e('Supprimer les fichiers importés', 'bellum'); ?>
+                        <?php esc_html_e('🗑️ Supprimer les fichiers importés', 'bellum'); ?>
                     </button>
                 </form>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!$test_files): ?>
+            <div class="sv-container__box sv-files-list">
+                <h2>🧪 <?php _e(count($test_files) . " fichiers de test", "bellum"); ?></h2>
+
+                <?php echo $data['person']['name']; ?>
+                <br />
+                <?php echo $data['emails'][0]['email']; ?>
+                <br />
+                <?php echo $data['person']['linkedin_url']; ?>
+                <br />
+                <?php echo isset($data['emails'][0]) ? "emails is set" : "not set" ?>
+
+                <strong><?php echo $is_duplicate; ?></strong>
             </div>
         <?php endif; ?>
     </div>
