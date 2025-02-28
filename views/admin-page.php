@@ -139,7 +139,7 @@ $is_duplicate = $json_importer->is_duplicate_entry($data) ? 'Not duplicate' : 'D
             </div>
         <?php endif; ?>
 
-        <?php if (!$test_files): ?>
+        <?php if ($test_files): ?>
             <div class="sv-container__box sv-files-list">
                 <h2>🧪 <?php _e(count($test_files) . " fichiers de test", "bellum"); ?></h2>
 
